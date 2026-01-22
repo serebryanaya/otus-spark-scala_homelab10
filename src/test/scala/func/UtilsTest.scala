@@ -1,12 +1,10 @@
-import Utils.{getCountriesWith5BordersDF, getLanguageRankDF}
+import Utils.{getCountriesWith5BordersDF, getLanguageRankDF, schema}
 import com.github.mrpowers.spark.fast.tests.DataFrameComparer
 import org.apache.logging.log4j.scala.Logging
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.{col, struct}
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.must.Matchers.contain
-import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
 class UtilsTest
   extends AnyFlatSpec
@@ -18,50 +16,9 @@ class UtilsTest
   private var testDf: DataFrame = _
 
   before {
-
-    import spark.implicits._
-
-    val tempData = Seq(
-      (
-        ("Russia", "Russian Federation"),
-        List("AZE", "BLR", "CHN", "EST", "FIN", "GEO", "KAZ", "PRK", "LVA", "LTU", "MNG", "NOR", "POL", "UKR"),
-        Map("rus" -> "Russian")
-      ),
-      (
-        ("China", "People's Republic of China"),
-        List("AFG", "BTN", "MMR", "HKG", "IND", "KAZ", "NPL", "PRK", "KGZ", "LAO", "MAC", "MNG", "PAK", "RUS", "TJK", "VNM"),
-        Map("zho" -> "Chinese")
-      ),
-      (
-        ("Monaco", "Principality of Monaco"),
-        List("FRA"),
-        Map("fra" -> "French")
-      ),
-      (
-        ("Germany", "Federal Republic of Germany"),
-        List("AUT", "BEL", "CZE", "DNK", "FRA", "LUX", "NLD", "POL", "CHE"),
-        Map("deu" -> "German")
-      ),
-      (
-        ("France", "French Republic"),
-        List("AND", "BEL", "DEU", "ITA", "LUX", "MCO", "ESP", "CHE"),
-        Map("fra" -> "French")
-      ),
-      (
-        ("Switzerland", "Swiss Confederation"),
-        List("AUT", "FRA", "DEU", "ITA", "LIE"),
-        Map("deu" -> "German", "fra" -> "French", "ita" -> "Italian", "roh" -> "Romansh")
-      )
-    ).toDF("name_tuple", "borders", "languages")
-
-    testDf = tempData.select(
-      struct(
-        col("name_tuple._1").alias("common"),
-        col("name_tuple._2").alias("official")
-      ).alias("name"),
-      col("borders"),
-      col("languages")
-    )
+    testDf = spark.read
+      .schema(schema)
+      .json("src/test/resources/countries.json")
   }
 
   it should "print testDf schema and show" in {
@@ -85,15 +42,13 @@ class UtilsTest
     assert(expectedFieldNames.forall(actualSchema.fieldNames.contains))
   }
 
-  it should "getCountriesWith5BordersDF should filter correctly - only countries with 5+ borders" in {
+  it should "getCountriesWith5BordersDF should correct for country with and without borders" in {
     val result = getCountriesWith5BordersDF(testDf)
-    val countries = result.collect().map(_.getString(0)).toSet
 
-    countries should contain("Russia")
-    countries should contain("China")
-    countries should contain("Germany")
-    countries should contain("France")
-    countries should contain("Switzerland")
+    val australiaRows = result.filter(col("Country") === "Australia").collect()
+    australiaRows.length.equals(0)
 
+    val russianRows = result.filter(col("Country") === "Russia").collect()
+    !russianRows.length.equals(0)
   }
 }

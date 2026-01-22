@@ -1,6 +1,8 @@
 import org.apache.logging.log4j.scala.Logging
 import org.apache.spark.sql.{DataFrame, functions}
 import org.apache.spark.sql.functions.{col, collect_list, concat_ws, count, explode}
+import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.sql.types._
 
 object Utils extends SparkSessionWrapper with Logging {
 
@@ -12,7 +14,6 @@ object Utils extends SparkSessionWrapper with Logging {
         functions.size(col("borders")).alias("NumBorders"),
         concat_ws(",", col("borders")).alias("BorderCountries")
       )
-
   }
 
   def getLanguageRankDF(df: DataFrame): DataFrame = {
@@ -27,4 +28,13 @@ object Utils extends SparkSessionWrapper with Logging {
         collect_list("Country").alias("Countries")
       )
   }
+
+  val schema: StructType = StructType(Array(
+    StructField("name", StructType(Array(
+      StructField("common", StringType),
+      StructField("official", StringType)
+    ))),
+    StructField("borders", ArrayType(StringType)),
+    StructField("languages", MapType(StringType, StringType))
+  ))
 }
